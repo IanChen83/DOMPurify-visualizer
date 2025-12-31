@@ -1,0 +1,5 @@
+{
+  "name": "DOMPurify Visualizer",
+  "description": "A tool to visualize how DOMPurify sanitizes HTML and SVG content, featuring a diff tree view and local history.",
+  "requestFramePermissions": []
+}
