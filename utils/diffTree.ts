@@ -1,15 +1,12 @@
 import DOMPurify from 'dompurify';
 import { TreeNode } from '../types';
 
-export function getCleanHTML(dirtyHTML: string): string {
-  return DOMPurify.sanitize(dirtyHTML, { 
-    FORCE_BODY: true,
-    ADD_TAGS: ['#comment'], // Preserve comments if possible
-  });
+export function getCleanHTML(dirtyHTML: string, config: DOMPurify.Config = { FORCE_BODY: true, ADD_TAGS: ['#comment'] }): string {
+  return DOMPurify.sanitize(dirtyHTML, config);
 }
 
-export function buildDiffTree(dirtyHTML: string): TreeNode[] {
-  const cleanHTML = getCleanHTML(dirtyHTML);
+export function buildDiffTree(dirtyHTML: string, config: DOMPurify.Config = { FORCE_BODY: true, ADD_TAGS: ['#comment'] }): TreeNode[] {
+  const cleanHTML = getCleanHTML(dirtyHTML, config);
 
   const parser = new DOMParser();
   const dirtyDoc = parser.parseFromString(dirtyHTML, 'text/html');

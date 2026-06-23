@@ -8,10 +8,14 @@ import { buildDiffTree, getCleanHTML } from './utils/diffTree';
 import { HistoryBar } from './components/HistoryBar';
 import { TreeVisualizer } from './components/TreeVisualizer';
 import { Modal } from './components/Modal';
-import { RotateCcw, Code, GitCommit, FileText, Network } from 'lucide-react';
+import { RotateCcw, Code, GitCommit, FileText, Network, ChevronUp, ChevronDown } from 'lucide-react';
+
+const DEFAULT_CONFIG_STR = `{\n  "FORCE_BODY": true,\n  "ADD_TAGS": ["#comment"]\n}`;
 
 export default function App() {
   const [content, setContent] = useState<string>(DEFAULT_CONTENT);
+  const [configStr, setConfigStr] = useState<string>(DEFAULT_CONFIG_STR);
+  const [configOpen, setConfigOpen] = useState(true);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'tree' | 'raw'>('tree');
@@ -39,9 +43,17 @@ export default function App() {
 
   // DOM Diff Tree
   const [treeNodes, setTreeNodes] = useState<TreeNode[]>([]);
+  const [configError, setConfigError] = useState<string | null>(null);
+
   useEffect(() => {
-    setTreeNodes(buildDiffTree(content));
-  }, [content]);
+    try {
+      const config = JSON.parse(configStr);
+      setConfigError(null);
+      setTreeNodes(buildDiffTree(content, config));
+    } catch(e: any) {
+      setConfigError(e.message);
+    }
+  }, [content, configStr]);
 
   // Helper: Save current state to history
   const saveCurrentToHistory = useCallback(() => {
@@ -168,21 +180,51 @@ export default function App() {
       <main className="flex-1 flex overflow-hidden">
         {/* Left Pane: Editor */}
         <div className="flex-1 flex flex-col border-r border-gray-800 min-w-0">
-            <div className="bg-gray-900 border-b border-gray-800 px-4 py-2 text-xs font-bold text-gray-500 uppercase flex items-center justify-between">
-                <span>Input (HTML/SVG)</span>
-                <span className="text-[10px] bg-gray-800 px-2 py-0.5 rounded text-gray-400">Paste supported (Ctrl+V)</span>
+            <div className="flex-1 flex flex-col min-h-0 border-b border-gray-800">
+                <div className="bg-gray-900 border-b border-gray-800 px-4 py-2 text-xs font-bold text-gray-500 uppercase flex items-center justify-between shrink-0">
+                    <span>Input (HTML/SVG)</span>
+                    <span className="text-[10px] bg-gray-800 px-2 py-0.5 rounded text-gray-400">Paste supported (Ctrl+V)</span>
+                </div>
+                <div className="flex-1 relative">
+                    <textarea
+                        className="w-full h-full bg-gray-950 text-gray-300 p-4 font-mono text-sm resize-none outline-none focus:ring-1 focus:ring-blue-900/50"
+                        value={content}
+                        onChange={(e) => {
+                            setContent(e.target.value);
+                        }}
+                        onPaste={handlePaste}
+                        placeholder="Enter HTML content here..."
+                        spellCheck={false}
+                    />
+                </div>
             </div>
-            <div className="flex-1 relative">
-                <textarea
-                    className="w-full h-full bg-gray-950 text-gray-300 p-4 font-mono text-sm resize-none outline-none focus:ring-1 focus:ring-blue-900/50"
-                    value={content}
-                    onChange={(e) => {
-                        setContent(e.target.value);
-                    }}
-                    onPaste={handlePaste}
-                    placeholder="Enter HTML content here..."
-                    spellCheck={false}
-                />
+
+            {/* Config Editor */}
+            <div className={clsx("flex flex-col shrink-0 flex-none border-t border-gray-800", configOpen ? "h-64" : "h-auto")}>
+                <button 
+                  onClick={() => setConfigOpen(!configOpen)}
+                  className="w-full bg-gray-900 border-b border-gray-800 px-4 py-2 text-xs font-bold flex items-center justify-between shrink-0 hover:bg-gray-800 transition-colors"
+                >
+                    <div className="flex items-center gap-2 text-gray-500 uppercase">
+                        {configOpen ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                        <span>DOMPurify Config (JSON)</span>
+                    </div>
+                    {configError && <span className="text-[10px] bg-red-900/30 text-red-400 px-2 py-0.5 rounded border border-red-800/50">Invalid JSON</span>}
+                </button>
+                {configOpen && (
+                    <div className="flex-1 relative">
+                         <textarea
+                            className={clsx(
+                                "w-full h-full bg-gray-950 text-gray-400 p-4 font-mono text-sm resize-none outline-none focus:ring-1",
+                                configError ? "focus:ring-red-900/50 text-red-300" : "focus:ring-blue-900/50"
+                            )}
+                            value={configStr}
+                            onChange={(e) => setConfigStr(e.target.value)}
+                            placeholder="Enter JSON config..."
+                            spellCheck={false}
+                        />
+                    </div>
+                )}
             </div>
         </div>
 
@@ -222,7 +264,14 @@ export default function App() {
                    <textarea
                        className="w-full h-full bg-transparent text-blue-100 font-mono text-sm resize-none outline-none p-2 selection:bg-blue-900/50"
                        readOnly
-                       value={formatHTML(getCleanHTML(content))}
+                       value={(() => {
+                           try {
+                               const config = JSON.parse(configStr);
+                               return formatHTML(getCleanHTML(content, config));
+                           } catch (e) {
+                               return 'Invalid JSON config...';
+                           }
+                       })()}
                    />
                 )}
             </div>
